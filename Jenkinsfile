@@ -1,9 +1,10 @@
 pipeline {
     agent any
     environment {
-        IMAGE_NAME = "your-dockerhub-user/enterprise-web-app"
-        BUILD_TAG  = "${BUILD_NUMBER}"
-        SLACK_URL  = credentials('slack-webhook-url')
+        // Updated to use local Harbor registry endpoint and repository path
+        HARBOR_REGISTRY = "192.168.1.184:9443"
+        IMAGE_NAME      = "192.168.1.184:9443/library/enterprise-web-app"
+        BUILD_TAG       = "${BUILD_NUMBER}"
     }
     stages {
         stage('Checkout Code') {
@@ -18,9 +19,10 @@ pipeline {
         }
         stage('Docker Build & Push') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                // Ensure credentials ID matches your Harbor credentials in Jenkins
+                withCredentials([usernamePassword(credentialsId: 'harbor-credentials', usernameVariable: 'HARBOR_USER', passwordVariable: 'HARBOR_PASS')]) {
                     sh "docker build -t ${IMAGE_NAME}:${BUILD_TAG} ."
-                    sh "echo \$PASS | docker login -u \$USER --password-stdin"
+                    sh "echo \$HARBOR_PASS | docker login ${HARBOR_REGISTRY} -u \$HARBOR_USER --password-stdin"
                     sh "docker push ${IMAGE_NAME}:${BUILD_TAG}"
                 }
             }
@@ -39,11 +41,14 @@ pipeline {
     }
     post {
         always {
-            sh """
-                curl -X POST -H 'Content-type: application/json' \
-                --data '{"text":"Pipeline ${JOB_NAME} #${BUILD_NUMBER} finished with status: ${currentBuild.currentResult}"}' \
-                ${SLACK_URL}
-            """
+            // Using withCredentials prevents the Groovy String interpolation security warning
+            withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
+                sh '''
+                    curl -X POST -H 'Content-type: application/json' \
+                    --data "{\"text\":\"Pipeline ${JOB_NAME} #${BUILD_NUMBER} finished with status: ${currentBuild.currentResult}\"}" \
+                    "$SLACK_WEBHOOK"
+                '''
+            }
         }
     }
 }
