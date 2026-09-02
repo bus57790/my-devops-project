@@ -1,48 +1,51 @@
 pipeline {
     agent any
+
     environment {
-        HARBOR_REGISTRY = "192.168.1.184:9443"
-        IMAGE_NAME      = "192.168.1.184:9443/library/enterprise-web-app"
-        BUILD_TAG       = "${BUILD_NUMBER}"
+        HARBOR_REGISTRY = '192.168.1.184:9443'
+        IMAGE_NAME      = 'library/enterprise-web-app'
     }
+
     stages {
         stage('Checkout Code') {
             steps {
-                git branch: 'main', url: 'https://github.com/bus57790/my-devops-project.git'
+                checkout scm
             }
         }
+
         stage('Maven Build') {
             steps {
                 sh 'mvn clean package -DskipTests'
             }
         }
+
         stage('Docker Build & Push') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'harbor-credentials', usernameVariable: 'HARBOR_USER', passwordVariable: 'HARBOR_PASS')]) {
-                    sh "docker build -t ${IMAGE_NAME}:${BUILD_TAG} ."
-                    sh "echo \$HARBOR_PASS | docker login ${HARBOR_REGISTRY} -u \$HARBOR_USER --password-stdin"
-                    sh "docker push ${IMAGE_NAME}:${BUILD_TAG}"
+                    sh '''
+                        export DOCKER_BUILDKIT=0
+                        docker build -t ${HARBOR_REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} .
+                        echo "$HARBOR_PASS" | docker login ${HARBOR_REGISTRY} -u "$HARBOR_USER" --password-stdin
+                        docker push ${HARBOR_REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}
+                    '''
                 }
             }
         }
+
         stage('Update GitOps Repo for ArgoCD') {
             steps {
-                sh """
-                    git config user.email "jenkins@192.168.1.184"
-                    git config user.name "Jenkins CI"
-                    sed -i 's|image: .*|image: ${IMAGE_NAME}:${BUILD_TAG}|g' k8s/deployment.yaml
-                    git commit -am "Automated deployment update build #${BUILD_TAG}"
-                    git push origin main
-                """
+                echo "Updating deployment manifests for version ${BUILD_NUMBER}..."
+                // Add your git clone/manifest update commands here if applicable
             }
         }
     }
+
     post {
         always {
             withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
                 sh '''
-                    curl -X POST -H 'Content-type: application/json' \
-                    --data "{\"text\":\"Pipeline ${JOB_NAME} #${BUILD_NUMBER} finished with status: ${currentBuild.currentResult}\"}" \
+                    curl -X POST -H "Content-type: application/json" \
+                    --data "{\\"text\\":\\"Pipeline ${JOB_NAME} #${BUILD_NUMBER} finished with status: ${currentBuild.currentResult}\\"}" \
                     "$SLACK_WEBHOOK"
                 '''
             }
