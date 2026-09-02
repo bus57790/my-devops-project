@@ -42,11 +42,9 @@ pipeline {
         always {
             withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
                 sh '''
-                    PAYLOAD=$(cat <<EOF
-{"text":"Pipeline ${JOB_NAME} #${BUILD_NUMBER} finished with status: ${currentBuild.currentResult}"}
-EOF
-                    )
-                    curl -X POST -H 'Content-type: application/json' --data "$PAYLOAD" "$SLACK_WEBHOOK"
+                    curl -X POST -H 'Content-type: application/json' \
+                    --data "{\\"text\\":\\"Pipeline ${JOB_NAME} #${BUILD_NUMBER} finished with status: ${currentBuild.currentResult}\\"}" \
+                    "${SLACK_WEBHOOK}"
                 '''
             }
         }
