@@ -41,11 +41,11 @@ pipeline {
     post {
         always {
             withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
-                sh '''
+                sh """
                     curl -X POST -H 'Content-Type: application/json' \
-                    --data '{"text":"Pipeline '${JOB_NAME}' #'${BUILD_NUMBER}' finished with status: '${currentBuild.currentResult}'"}' \
-                    $SLACK_WEBHOOK
-                '''
+                    --data '{"text":"Pipeline ${env.JOB_NAME} #${env.BUILD_NUMBER} finished with status: ${currentBuild.currentResult}"}' \
+                    "${SLACK_WEBHOOK}"
+                """
             }
         }
     }
