@@ -25,7 +25,7 @@ pipeline {
                     sh '''
                         docker build -t $HARBOR_REGISTRY/$IMAGE_NAME:$BUILD_NUMBER .
                         echo "$HARBOR_PASS" | docker login https://$HARBOR_REGISTRY -u "$HARBOR_USER" --password-stdin
-                        DOCKER_BUILDKIT=0 docker push $HARBOR_REGISTRY/$IMAGE_NAME:$BUILD_NUMBER
+                        docker push $HARBOR_REGISTRY/$IMAGE_NAME:$BUILD_NUMBER
                     '''
                 }
             }
@@ -42,8 +42,9 @@ pipeline {
         always {
             withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
                 sh '''
+                    STATUS=${currentBuild.currentResult}
                     curl -X POST -H 'Content-Type: application/json' \
-                    --data "{\\"text\\":\\"Pipeline ${JOB_NAME} #${BUILD_NUMBER} finished with status: ${BUILD_RESULT}\\"}" \
+                    --data "{\\"text\\":\\"Pipeline ${JOB_NAME} #${BUILD_NUMBER} finished with status: ${STATUS}\\"}" \
                     "$SLACK_WEBHOOK"
                 '''
             }
