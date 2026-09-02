@@ -23,7 +23,6 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'harbor-credentials', usernameVariable: 'HARBOR_USER', passwordVariable: 'HARBOR_PASS')]) {
                     sh '''
-                        export DOCKER_BUILDKIT=0
                         docker build -t ${HARBOR_REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER} .
                         echo "$HARBOR_PASS" | docker login ${HARBOR_REGISTRY} -u "$HARBOR_USER" --password-stdin
                         docker push ${HARBOR_REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}
@@ -35,7 +34,6 @@ pipeline {
         stage('Update GitOps Repo for ArgoCD') {
             steps {
                 echo "Updating deployment manifests for version ${BUILD_NUMBER}..."
-                // Add your git clone/manifest update commands here if applicable
             }
         }
     }
@@ -44,9 +42,11 @@ pipeline {
         always {
             withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
                 sh '''
-                    curl -X POST -H "Content-type: application/json" \
-                    --data "{\\"text\\":\\"Pipeline ${JOB_NAME} #${BUILD_NUMBER} finished with status: ${currentBuild.currentResult}\\"}" \
-                    "$SLACK_WEBHOOK"
+                    PAYLOAD=$(cat <<EOF
+{"text":"Pipeline ${JOB_NAME} #${BUILD_NUMBER} finished with status: ${currentBuild.currentResult}"}
+EOF
+                    )
+                    curl -X POST -H 'Content-type: application/json' --data "$PAYLOAD" "$SLACK_WEBHOOK"
                 '''
             }
         }
