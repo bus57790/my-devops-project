@@ -23,9 +23,10 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'harbor-credentials', usernameVariable: 'HARBOR_USER', passwordVariable: 'HARBOR_PASS')]) {
                     sh '''
-                        docker build -t $HARBOR_REGISTRY/$IMAGE_NAME:$BUILD_NUMBER .
-                        echo "$HARBOR_PASS" | docker login https://$HARBOR_REGISTRY -u "$HARBOR_USER" --password-stdin
-                        docker push $HARBOR_REGISTRY/$IMAGE_NAME:$BUILD_NUMBER
+                        BUILD_TAG="${HARBOR_REGISTRY}/${IMAGE_NAME}:${BUILD_NUMBER}"
+                        docker build --provenance=false -t "${BUILD_TAG}" .
+                        echo "$HARBOR_PASS" | docker login "https://${HARBOR_REGISTRY}" -u "$HARBOR_USER" --password-stdin
+                        docker push "${BUILD_TAG}"
                     '''
                 }
             }
@@ -42,9 +43,8 @@ pipeline {
         always {
             withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
                 sh '''
-                    STATUS=${currentBuild.currentResult}
                     curl -X POST -H 'Content-Type: application/json' \
-                    --data "{\\"text\\":\\"Pipeline ${JOB_NAME} #${BUILD_NUMBER} finished with status: ${STATUS}\\"}" \
+                    --data "{\\"text\\":\\"Pipeline ${JOB_NAME} #${BUILD_NUMBER} finished with status: ${currentBuild.currentResult}\\"}" \
                     "$SLACK_WEBHOOK"
                 '''
             }
