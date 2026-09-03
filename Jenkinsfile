@@ -46,13 +46,10 @@ pipeline {
         always {
             withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
                 sh '''
-                    PAYLOAD=$(jq -n \
-                      --arg job "$JOB_NAME" \
-                      --arg build "$BUILD_NUMBER" \
-                      --arg status "$currentBuild.currentResult" \
-                      '{text: "Pipeline \($job) #\($build) finished with status: \($status)"}')
-
-                    curl -s -X POST -H 'Content-Type: application/json' --data "$PAYLOAD" "$SLACK_WEBHOOK" || true
+                    TEXT="Pipeline ${JOB_NAME} #${BUILD_NUMBER} finished with status: ${BUILD_RESULT:-SUCCESS}"
+                    curl -s -X POST -H 'Content-Type: application/json' \
+                      --data "{\"text\":\"${TEXT}\"}" \
+                      "$SLACK_WEBHOOK" || true
                 '''
             }
         }
