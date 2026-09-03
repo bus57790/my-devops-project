@@ -1,6 +1,6 @@
 pipeline {
     agent any
-[<0;102;11M[<0;102;11m
+
     environment {
         DOCKER_HUB_USER = 'bus57790'
         IMAGE_NAME      = 'enterprise-web-app'
