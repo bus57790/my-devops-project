@@ -1,9 +1,9 @@
 pipeline {
     agent any
-
+[<0;102;11M[<0;102;11m
     environment {
-        HARBOR_HOST = '192.168.1.184:9443'
-        IMAGE_NAME  = 'library/enterprise-web-app'
+        DOCKER_HUB_USER = 'bus57790'
+        IMAGE_NAME      = 'enterprise-web-app'
     }
 
     stages {
@@ -21,12 +21,15 @@ pipeline {
 
         stage('Docker Build & Push') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'harbor-credentials', usernameVariable: 'HARBOR_USER', passwordVariable: 'HARBOR_PASS')]) {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
                     sh '''
-                        BUILD_TAG="${HARBOR_HOST}/${IMAGE_NAME}:${BUILD_NUMBER}"
-                        docker build --provenance=false -t "${BUILD_TAG}" .
-                        echo "$HARBOR_PASS" | docker login "https://${HARBOR_HOST}" -u "$HARBOR_USER" --password-stdin
+                        BUILD_TAG="${DOCKER_HUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}"
+                        LATEST_TAG="${DOCKER_HUB_USER}/${IMAGE_NAME}:latest"
+
+                        docker build --provenance=false -t "${BUILD_TAG}" -t "${LATEST_TAG}" .
+                        echo "$DH_PASS" | docker login -u "$DH_USER" --password-stdin
                         docker push "${BUILD_TAG}"
+                        docker push "${LATEST_TAG}"
                     '''
                 }
             }
@@ -43,8 +46,9 @@ pipeline {
         always {
             withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
                 sh '''
-                    PAYLOAD=$(jq -n --arg text "Pipeline ${JOB_NAME} #${BUILD_NUMBER} finished with status: ${currentBuild.currentResult}" '{text: $text}')
-                    curl -X POST -H 'Content-Type: application/json' --data "$PAYLOAD" "$SLACK_WEBHOOK"
+                    curl -X POST -H 'Content-Type: application/json' \
+                    --data "{\"text\":\"Pipeline ${JOB_NAME} #${BUILD_NUMBER} finished with status: ${currentBuild.currentResult}\"}" \
+                    "$SLACK_WEBHOOK" || true
                 '''
             }
         }
