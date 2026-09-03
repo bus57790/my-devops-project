@@ -21,7 +21,7 @@ pipeline {
 
         stage('Docker Build & Push') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
+                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DH_USER', passwordVariable: 'DH_PASS')]) {
                     sh '''
                         BUILD_TAG="${DOCKER_HUB_USER}/${IMAGE_NAME}:${BUILD_NUMBER}"
                         LATEST_TAG="${DOCKER_HUB_USER}/${IMAGE_NAME}:latest"
@@ -46,9 +46,13 @@ pipeline {
         always {
             withCredentials([string(credentialsId: 'slack-webhook-url', variable: 'SLACK_WEBHOOK')]) {
                 sh '''
-                    curl -X POST -H 'Content-Type: application/json' \
-                    --data "{\"text\":\"Pipeline ${JOB_NAME} #${BUILD_NUMBER} finished with status: ${currentBuild.currentResult}\"}" \
-                    "$SLACK_WEBHOOK" || true
+                    PAYLOAD=$(jq -n \
+                      --arg job "$JOB_NAME" \
+                      --arg build "$BUILD_NUMBER" \
+                      --arg status "$currentBuild.currentResult" \
+                      '{text: "Pipeline \($job) #\($build) finished with status: \($status)"}')
+
+                    curl -s -X POST -H 'Content-Type: application/json' --data "$PAYLOAD" "$SLACK_WEBHOOK" || true
                 '''
             }
         }
